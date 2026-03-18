@@ -1,7 +1,7 @@
 /**
  * @file app.js
  * @brief Dynamic task manager for Ava Arrival Prep.
- * @version 3.1
+ * @version 3.2
  */
 
 (function () {
@@ -134,7 +134,6 @@
                 appData = parsed.appData;
                 userState = parsed.userState;
             } else {
-                // Try to fetch from JSON, but fall back to internal constant if blocked (CORS)
                 try {
                     const response = await fetch('src/tasks.json');
                     if (response.ok) {
@@ -143,13 +142,11 @@
                         appData = DEFAULT_APP_DATA;
                     }
                 } catch (e) {
-                    console.warn('CORS/Fetch blocked, using internal default data');
                     appData = DEFAULT_APP_DATA;
                 }
                 userState = { checked: {} };
             }
         } catch (err) {
-            console.error('Failed to load data:', err);
             appData = DEFAULT_APP_DATA;
         }
 
@@ -348,18 +345,6 @@
             dl.click();
         });
 
-        // Audio Logic
-        const startAudio = () => {
-            if (window.AudioEngine) {
-                window.AudioEngine.init();
-                window.AudioEngine.startLullaby();
-                document.removeEventListener('click', startAudio);
-                document.removeEventListener('touchstart', startAudio);
-            }
-        };
-        document.addEventListener('click', startAudio);
-        document.addEventListener('touchstart', startAudio);
-
         el.audioToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             if (window.AudioEngine) {
@@ -379,24 +364,24 @@
         });
     }
 
+    // Initialize App
     init();
 
-    // Audio Logic - Try immediately, fallback to interaction
-    const startAudio = () => {
+    // Audio Bootstrapper
+    const startAudio = async () => {
         if (window.AudioEngine) {
-            window.AudioEngine.init();
-            window.AudioEngine.startLullaby();
-            // Remove listeners once it actually starts
+            console.log('User interaction detected, starting audio...');
+            await window.AudioEngine.startLullaby();
+            
+            // Clean up listeners
             document.removeEventListener('click', startAudio);
             document.removeEventListener('touchstart', startAudio);
             document.removeEventListener('mousedown', startAudio);
         }
     };
 
-    // Try starting immediately (some browsers/webviews allow it)
-    setTimeout(startAudio, 100);
-
-    // Robust fallback for modern browser autoplay policies
+    // Try auto-start, fallback to gesture
+    setTimeout(startAudio, 200);
     document.addEventListener('click', startAudio);
     document.addEventListener('touchstart', startAudio);
     document.addEventListener('mousedown', startAudio);

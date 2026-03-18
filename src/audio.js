@@ -2,7 +2,7 @@
  * @file audio.js
  * @brief Procedural audio engine for Ava Arrival Prep.
  *        Implements a slow, warm bell style Brahms' Lullaby with user-defined notes.
- * @version 1.3
+ * @version 1.4
  */
 
 const AudioEngine = (function () {
@@ -15,7 +15,6 @@ const AudioEngine = (function () {
     let isMuted = false;
 
     // Brahms' Lullaby Melody (User Defined Notes in 6th Octave)
-    // Frequencies: G5: 783.99, C6: 1046.50, D6: 1174.66, E6: 1318.51, F6: 1396.91, G6: 1567.98
     const LULLABY_NOTES = [
         // "Lullaby and goodnight"
         { f: 783.99, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 1.6 },
@@ -34,23 +33,25 @@ const AudioEngine = (function () {
      * @brief Initializes the Web Audio context and graph.
      */
     async function init() {
-        if (isInitialized && ctx.state === 'running') return;
+        // If already running, nothing to do
+        if (ctx && ctx.state === 'running') return true;
 
         try {
             if (!ctx) {
+                console.log('Creating new AudioContext...');
                 ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 masterGain = ctx.createGain();
-                masterGain.gain.value = 0.2; // Gentle volume for high notes
+                masterGain.gain.value = 0.2; 
                 masterGain.connect(ctx.destination);
 
                 reverbBus = ctx.createGain();
-                reverbBus.gain.value = 0.5; // High reverb for ethereal feel
+                reverbBus.gain.value = 0.5;
                 
                 const delay = ctx.createDelay();
                 delay.delayTime.value = 0.8;
                 const feedback = ctx.createGain();
-                feedback.gain.value = 0.15; // Minimal feedback to avoid clutter
+                feedback.gain.value = 0.15;
 
                 reverbBus.connect(delay);
                 delay.connect(feedback);
@@ -58,13 +59,17 @@ const AudioEngine = (function () {
                 delay.connect(masterGain);
             }
 
+            // Attempt to resume if suspended (standard browser behavior)
             if (ctx.state === 'suspended') {
+                console.log('Resuming suspended AudioContext...');
                 await ctx.resume();
             }
 
-            isInitialized = true;
+            isInitialized = (ctx.state === 'running');
+            return isInitialized;
         } catch (e) {
-            console.error('Web Audio API Initialization Error:', e);
+            console.error('Audio Engine Init Failed:', e);
+            return false;
         }
     }
 
@@ -72,7 +77,7 @@ const AudioEngine = (function () {
      * @brief Plays a single "warm bell" note with long sustain
      */
     function playNote(freq, startTime, duration) {
-        if (!isInitialized || isMuted) return;
+        if (!ctx || ctx.state !== 'running' || isMuted) return;
 
         const osc = ctx.createOscillator();
         const noteGain = ctx.createGain();
@@ -80,7 +85,6 @@ const AudioEngine = (function () {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
 
-        // Slow attack and very long release
         noteGain.gain.setValueAtTime(0, startTime);
         noteGain.gain.linearRampToValueAtTime(0.25, startTime + 0.1); 
         noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 3.0);
@@ -101,15 +105,19 @@ const AudioEngine = (function () {
      * @brief Starts the slow, single-note lullaby.
      */
     async function startLullaby() {
-        await init();
-        if (isPlaying) return;
+        const success = await init();
+        if (!success || isPlaying) return;
         
+        console.log('Starting Lullaby sequence...');
         isPlaying = true;
         nextNoteTime = ctx.currentTime + 0.2;
-        const tempo = 1.8; // Slow tempo (1.8s per beat)
+        const tempo = 1.8;
 
         function scheduleLoop() {
-            if (!isPlaying) return;
+            if (!isPlaying || ctx.state !== 'running') {
+                isPlaying = false;
+                return;
+            }
 
             if (nextNoteTime < ctx.currentTime) {
                 nextNoteTime = ctx.currentTime + 0.2;
@@ -122,7 +130,7 @@ const AudioEngine = (function () {
             });
 
             const nextBatchWait = (loopDuration) * 1000;
-            nextNoteTime += loopDuration + 3.0; // 3s gap between loops
+            nextNoteTime += loopDuration + 3.0;
             sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 3000);
         }
 
@@ -136,7 +144,7 @@ const AudioEngine = (function () {
 
     function toggleMute() {
         isMuted = !isMuted;
-        if (masterGain) {
+        if (masterGain && ctx) {
             masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.2, ctx.currentTime, 0.2);
         }
         return isMuted;
