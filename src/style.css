@@ -292,6 +292,20 @@ h2 { font-size: clamp(1.1rem, 4vw, 1.25rem); font-family: 'DM Serif Display', se
     color: var(--text-muted);
 }
 
+.audio-btn {
+    position: absolute;
+    top: calc(1rem + var(--safe-top));
+    right: 1.25rem;
+    font-size: 1.4rem;
+    z-index: 10;
+    opacity: 0.8;
+}
+
+.audio-btn.muted {
+    opacity: 0.4;
+    filter: grayscale(1);
+}
+
 /* ── Admin Controls ─────────────────────────────────────── */
 .admin-controls {
     margin-top: 2rem;

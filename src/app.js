@@ -1,26 +1,109 @@
 /**
  * @file app.js
  * @brief Dynamic task manager for Ava Arrival Prep.
- * @version 3.0
+ * @version 3.1
  */
 
 (function () {
     'use strict';
 
     const STORAGE_KEY = 'ava-checklist-data-v3';
-    const DEFAULT_DATA_PATH = 'src/tasks.json';
-
-    let appData = {
-        app_title: "Baby Ava's Arrival Prep",
-        app_subtitle: "Checklist & Task Tracker",
-        categories: []
+    
+    // Default data as a fallback to avoid CORS issues with file:// protocol
+    const DEFAULT_APP_DATA = {
+        "app_title": "Baby Ava's Arrival Prep",
+        "app_subtitle": "Checklist & Task Tracker",
+        "categories": [
+            {
+                "id": "c1",
+                "title": "Nursery & Baby Core",
+                "subtitle": "Baby's Room / House",
+                "icon": "🍼",
+                "tasks": [
+                    { "id": "t1", "text": "Assemble the crib", "priority": "MED" },
+                    { "id": "t2", "text": "Clean the future baby's room", "priority": "LOW" },
+                    { "id": "t3", "text": "Hang a new ceiling fan in the baby's room", "priority": "MED" },
+                    { "id": "t4", "text": "Install two cameras in the baby's room", "priority": "LOW" },
+                    { "id": "t5", "text": "Assemble the Pack 'N Play", "priority": "LOW" }
+                ]
+            },
+            {
+                "id": "c2",
+                "title": "Medical & Admin",
+                "subtitle": "External / Online",
+                "icon": "🏥",
+                "tasks": [
+                    { "id": "t6", "text": "Call/set up pediatric doctor in Wildwood/Lee's Summit (Monday deadline, finalize by next Sunday)", "priority": "MED" }
+                ]
+            },
+            {
+                "id": "c3",
+                "title": "Interior Cleaning & Org",
+                "subtitle": "Whole House",
+                "icon": "🧹",
+                "tasks": [
+                    { "id": "t7", "text": "Deep clean main rooms (living room, kitchen, dining room)", "priority": "HIGH" },
+                    { "id": "t8", "text": "Wash the carpets", "priority": "MED" },
+                    { "id": "t9", "text": "General organizing and putting stuff away", "priority": "LOW" },
+                    { "id": "t10", "text": "Rearrange master bedroom and switch sides on the bed", "priority": "LOW" },
+                    { "id": "t11", "text": "Clean up and organize the basement (throw away old college stuff)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c4",
+                "title": "Furniture & Equipment",
+                "subtitle": "Various",
+                "icon": "🪑",
+                "tasks": [
+                    { "id": "t12", "text": "Assemble a table", "priority": "LOW" },
+                    { "id": "t13", "text": "Install a fixture", "priority": "MED" },
+                    { "id": "t14", "text": "Set up bottle washer in dining room (route wastewater outside via weatherproof fitting)", "priority": "MED" },
+                    { "id": "t15", "text": "Find and buy a comfortable nursing/holding chair for office/upstairs (under $500)", "priority": "LOW" }
+                ]
+            },
+            {
+                "id": "c5",
+                "title": "Electrical & Safety",
+                "subtitle": "Whole House",
+                "icon": "⚡",
+                "tasks": [
+                    { "id": "t16", "text": "Child-safe electrical outlets and remove/store sharp objects", "priority": "LOW" },
+                    { "id": "t17", "text": "Route internet to center of house (power & ethernet from coax modem to central WAP & core PC)", "priority": "HIGH" },
+                    { "id": "t18", "text": "Run power to deficient room (disconnect panel, run cabling, wire outlets)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c6",
+                "title": "Exterior & Garage",
+                "subtitle": "Outside / Garage",
+                "icon": "🏡",
+                "tasks": [
+                    { "id": "t19", "text": "Clean up the garage and put the tent away", "priority": "LOW" },
+                    { "id": "t20", "text": "Install front-facing security camera on garage (requires wiring external outlet)", "priority": "HIGH" },
+                    { "id": "t21", "text": "Clean up car cover area", "priority": "LOW" },
+                    { "id": "t22", "text": "Prep and store '69 Opel GT project outside with cover (rust prevention)", "priority": "MED" },
+                    { "id": "t23", "text": "Purchase and set up robotic lawnmower (steep-hill capable, ¼ acre)", "priority": "MED" },
+                    { "id": "t24", "text": "Replace back porch chair cushions", "priority": "LOW" },
+                    { "id": "t25", "text": "Repair/replace structurally unstable back porch (evaluate DIY vs contractor)", "priority": "HIGH" },
+                    { "id": "t26", "text": "Install backyard dog fence (permanent build or temporary wrap-around)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c7",
+                "title": "Pet Management",
+                "subtitle": "Living Room / Dogs",
+                "icon": "🐾",
+                "tasks": [
+                    { "id": "t27", "text": "Build/buy proper aesthetic dog housing (~15ft L × 2–3ft W × 4ft H)", "priority": "MED" },
+                    { "id": "t28", "text": "Buy small, cheap, long-lasting non-shock vibration/sound training collars for barking", "priority": "LOW" }
+                ]
+            }
+        ]
     };
 
-    let userState = {
-        checked: {} // { "t1": true }
-    };
+    let appData = { ...DEFAULT_APP_DATA };
+    let userState = { checked: {} };
 
-    // DOM Cache
     const el = {
         appTitle: document.getElementById('appTitle'),
         appSubtitle: document.getElementById('appSubtitle'),
@@ -31,6 +114,7 @@
         addCategoryBtn: document.getElementById('addCategoryBtn'),
         resetDataBtn: document.getElementById('resetDataBtn'),
         exportDataBtn: document.getElementById('exportDataBtn'),
+        audioToggle: document.getElementById('audioToggle'),
         editModal: document.getElementById('editModal'),
         modalTitle: document.getElementById('modalTitle'),
         editInput: document.getElementById('editInput'),
@@ -42,9 +126,6 @@
 
     let activeEditContext = null;
 
-    /**
-     * @brief Loads data from localStorage or fetches from JSON.
-     */
     async function init() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -53,12 +134,23 @@
                 appData = parsed.appData;
                 userState = parsed.userState;
             } else {
-                const response = await fetch(DEFAULT_DATA_PATH);
-                appData = await response.json();
+                // Try to fetch from JSON, but fall back to internal constant if blocked (CORS)
+                try {
+                    const response = await fetch('src/tasks.json');
+                    if (response.ok) {
+                        appData = await response.json();
+                    } else {
+                        appData = DEFAULT_APP_DATA;
+                    }
+                } catch (e) {
+                    console.warn('CORS/Fetch blocked, using internal default data');
+                    appData = DEFAULT_APP_DATA;
+                }
                 userState = { checked: {} };
             }
         } catch (err) {
             console.error('Failed to load data:', err);
+            appData = DEFAULT_APP_DATA;
         }
 
         renderApp();
@@ -88,7 +180,7 @@
 
         section.innerHTML = `
             <div class="section-header">
-                <div class="section-icon">${cat.icon || '🍼'}</div>
+                <div class="section-icon">${cat.icon || '📋'}</div>
                 <div class="header-text">
                     <h2 class="section-title">${cat.title}</h2>
                     <p class="section-meta">${cat.subtitle}</p>
@@ -106,9 +198,15 @@
             taskList.appendChild(createTaskElement(task, cat.id));
         });
 
-        // Event listeners for section actions
-        section.querySelector('.add-task-btn').addEventListener('click', () => openModal('TASK', cat.id));
-        section.querySelector('.delete-cat-btn').addEventListener('click', () => deleteCategory(cat.id));
+        section.querySelector('.add-task-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openModal('TASK', cat.id);
+        });
+        
+        section.querySelector('.delete-cat-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteCategory(cat.id);
+        });
 
         return section;
     }
@@ -123,7 +221,7 @@
             <input type="checkbox" data-id="${task.id}" ${isChecked ? 'checked' : ''}>
             <span class="task-text">${task.text}</span>
             <span class="badge badge-${task.priority.toLowerCase()}">${task.priority}</span>
-            <button class="btn-icon delete-task-btn">✕</button>
+            <button class="btn-icon delete-task-btn" title="Delete Task">✕</button>
         `;
 
         const checkbox = label.querySelector('input');
@@ -138,6 +236,7 @@
 
         label.querySelector('.delete-task-btn').addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             deleteTask(catId, task.id);
         });
 
@@ -164,21 +263,21 @@
     function fireConfetti() {
         if (typeof confetti !== 'function') return;
         confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#0f1923', '#f7a8b8', '#ffcad4']
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.7 },
+            colors: ['#0f1923', '#f7a8b8', '#ffcad4'],
+            disableForReducedMotion: true
         });
     }
 
-    // Modal Logic
     function openModal(type, parentId = null) {
         activeEditContext = { type, parentId };
         el.modalTitle.textContent = type === 'CAT' ? 'Add New Category' : 'Add New Task';
         el.editInput.value = '';
         el.priorityGroup.classList.toggle('hidden', type === 'CAT');
         el.editModal.classList.add('visible');
-        el.editInput.focus();
+        setTimeout(() => el.editInput.focus(), 50);
     }
 
     function closeModal() {
@@ -191,14 +290,13 @@
         if (!val) return;
 
         if (activeEditContext.type === 'CAT') {
-            const newCat = {
+            appData.categories.push({
                 id: 'c' + Date.now(),
                 title: val,
                 subtitle: "Custom Category",
                 icon: "📋",
                 tasks: []
-            };
-            appData.categories.push(newCat);
+            });
         } else {
             const cat = appData.categories.find(c => c.id === activeEditContext.parentId);
             if (cat) {
@@ -215,7 +313,6 @@
         closeModal();
     }
 
-    // Deletion Logic
     function deleteCategory(id) {
         if (!confirm('Delete this category and all its tasks?')) return;
         appData.categories = appData.categories.filter(c => c.id !== id);
@@ -245,21 +342,42 @@
         });
         el.exportDataBtn.addEventListener('click', () => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href",     dataStr);
-            downloadAnchorNode.setAttribute("download", "tasks_backup.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
+            const dl = document.createElement('a');
+            dl.href = dataStr;
+            dl.download = "tasks_backup.json";
+            dl.click();
         });
 
-        // Close modal on background click
+        // Audio Logic
+        const startAudio = () => {
+            if (window.AudioEngine) {
+                window.AudioEngine.init();
+                window.AudioEngine.startLullaby();
+                document.removeEventListener('click', startAudio);
+                document.removeEventListener('touchstart', startAudio);
+            }
+        };
+        document.addEventListener('click', startAudio);
+        document.addEventListener('touchstart', startAudio);
+
+        el.audioToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.AudioEngine) {
+                const isMuted = window.AudioEngine.toggleMute();
+                el.audioToggle.classList.toggle('muted', isMuted);
+                el.audioToggle.textContent = isMuted ? '🔇' : '🎵';
+            }
+        });
+
         el.editModal.addEventListener('click', (e) => {
             if (e.target === el.editModal) closeModal();
         });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && el.editModal.classList.contains('visible')) closeModal();
+            if (e.key === 'Enter' && el.editModal.classList.contains('visible')) saveModal();
+        });
     }
 
-    // Initialize
     init();
-
 })();
