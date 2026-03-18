@@ -1,8 +1,8 @@
 /**
  * @file audio.js
  * @brief Procedural audio engine for Ava Arrival Prep.
- *        Implements a slow, warm bell style Brahms' Lullaby.
- * @version 1.2
+ *        Implements a slow, warm bell style Brahms' Lullaby with user-defined notes.
+ * @version 1.3
  */
 
 const AudioEngine = (function () {
@@ -14,15 +14,20 @@ const AudioEngine = (function () {
     let isInitialized = false;
     let isMuted = false;
 
-    // Brahms' Lullaby Melody (Notes and Durations)
-    // d: 1.0 = one full beat in our slow tempo
+    // Brahms' Lullaby Melody (User Defined Notes in 6th Octave)
+    // Frequencies: G5: 783.99, C6: 1046.50, D6: 1174.66, E6: 1318.51, F6: 1396.91, G6: 1567.98
     const LULLABY_NOTES = [
-        { f: 329.63, d: 1.0 }, { f: 329.63, d: 1.5 }, { f: 392.00, d: 0.5 }, // E4, E4, G4
-        { f: 329.63, d: 1.0 }, { f: 329.63, d: 1.5 }, { f: 392.00, d: 0.5 }, // E4, E4, G4
-        { f: 329.63, d: 1.0 }, { f: 392.00, d: 1.0 }, { f: 523.25, d: 2.0 }, // E4, G4, C5
-        { f: 493.88, d: 1.0 }, { f: 440.00, d: 1.0 }, { f: 392.00, d: 2.0 }, // B4, A4, G4
-        { f: 293.66, d: 1.0 }, { f: 349.23, d: 1.0 }, { f: 440.00, d: 2.0 }, // D4, F4, A4
-        { f: 392.00, d: 1.0 }, { f: 349.23, d: 1.0 }, { f: 329.63, d: 2.0 }  // G4, F4, E4
+        // "Lullaby and goodnight"
+        { f: 783.99, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 1.6 },
+        { f: 1318.51, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 1.6 },
+        
+        // "With roses bedight"
+        { f: 1174.66, d: 0.8 }, { f: 1174.66, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 1.6 },
+        { f: 1318.51, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 1.6 },
+        
+        // "Go to sleep, little baby..." (Descending pattern)
+        { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1567.98, d: 1.6 },
+        { f: 1396.91, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1174.66, d: 0.8 }, { f: 1046.50, d: 2.0 }
     ];
 
     /**
@@ -36,17 +41,16 @@ const AudioEngine = (function () {
                 ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 masterGain = ctx.createGain();
-                masterGain.gain.value = 0.25; // Lower overall volume for calming effect
+                masterGain.gain.value = 0.2; // Gentle volume for high notes
                 masterGain.connect(ctx.destination);
 
-                // Reverb: Single long tail, no short echoes
                 reverbBus = ctx.createGain();
-                reverbBus.gain.value = 0.4; // More reverb for "ethereal" feel
+                reverbBus.gain.value = 0.5; // High reverb for ethereal feel
                 
                 const delay = ctx.createDelay();
-                delay.delayTime.value = 0.8; // Long delay time
+                delay.delayTime.value = 0.8;
                 const feedback = ctx.createGain();
-                feedback.gain.value = 0.2; // Low feedback to prevent "double sound" clutter
+                feedback.gain.value = 0.15; // Minimal feedback to avoid clutter
 
                 reverbBus.connect(delay);
                 delay.connect(feedback);
@@ -59,7 +63,6 @@ const AudioEngine = (function () {
             }
 
             isInitialized = true;
-            console.log('Audio Engine Initialized (v1.2). State:', ctx.state);
         } catch (e) {
             console.error('Web Audio API Initialization Error:', e);
         }
@@ -74,14 +77,12 @@ const AudioEngine = (function () {
         const osc = ctx.createOscillator();
         const noteGain = ctx.createGain();
 
-        // Warm timbre: Sine wave is purest
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
 
-        // Slow attack (prevents clicks) and very long release
+        // Slow attack and very long release
         noteGain.gain.setValueAtTime(0, startTime);
-        noteGain.gain.linearRampToValueAtTime(0.3, startTime + 0.1); 
-        // Sustain note for longer than its musical duration
+        noteGain.gain.linearRampToValueAtTime(0.25, startTime + 0.1); 
         noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 3.0);
 
         osc.connect(noteGain);
@@ -105,7 +106,7 @@ const AudioEngine = (function () {
         
         isPlaying = true;
         nextNoteTime = ctx.currentTime + 0.2;
-        const tempo = 1.8; // Much slower (1.8 seconds per beat)
+        const tempo = 1.8; // Slow tempo (1.8s per beat)
 
         function scheduleLoop() {
             if (!isPlaying) return;
@@ -120,10 +121,9 @@ const AudioEngine = (function () {
                 loopDuration += note.d * tempo;
             });
 
-            // Schedule the next block with a slight gap
             const nextBatchWait = (loopDuration) * 1000;
-            nextNoteTime += loopDuration + 2.0; // Added a 2 second gap between loops
-            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 2000);
+            nextNoteTime += loopDuration + 3.0; // 3s gap between loops
+            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 3000);
         }
 
         scheduleLoop();
@@ -137,7 +137,7 @@ const AudioEngine = (function () {
     function toggleMute() {
         isMuted = !isMuted;
         if (masterGain) {
-            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.25, ctx.currentTime, 0.2);
+            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.2, ctx.currentTime, 0.2);
         }
         return isMuted;
     }
