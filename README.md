@@ -1,5 +1,7 @@
 # Baby Ava's Arrival Prep Checklist
 
+https://ee-edk.github.io/AvA-ToDO/
+
 A clean, mobile-optimized checklist for tracking baby preparation tasks. Built with vanilla HTML/CSS/JS for maximum compatibility and performance.
 
 ## Features
