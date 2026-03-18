@@ -2,7 +2,7 @@
  * @file audio.js
  * @brief Procedural audio engine for Ava Arrival Prep.
  *        Implements a music box style Brahms' Lullaby.
- * @version 1.0
+ * @version 1.1
  */
 
 const AudioEngine = (function () {
@@ -15,8 +15,6 @@ const AudioEngine = (function () {
     let isMuted = false;
 
     // Brahms' Lullaby Melody (Notes and Durations)
-    // Simplified for a cute music box effect
-    // 4 = quarter, 8 = eighth, 2 = half, etc.
     const LULLABY_NOTES = [
         { f: 329.63, d: 0.5 }, { f: 329.63, d: 0.75 }, { f: 392.00, d: 0.25 }, // E4, E4, G4
         { f: 329.63, d: 0.5 }, { f: 329.63, d: 0.75 }, { f: 392.00, d: 0.25 }, // E4, E4, G4
@@ -28,33 +26,41 @@ const AudioEngine = (function () {
 
     /**
      * @brief Initializes the Web Audio context and graph.
-     * Must be called from a user gesture.
      */
-    function init() {
-        if (isInitialized) return;
+    async function init() {
+        if (isInitialized && ctx.state === 'running') return;
 
         try {
-            ctx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = ctx.createGain();
-            masterGain.gain.value = 0.3; // Gentle volume
-            masterGain.connect(ctx.destination);
+            if (!ctx) {
+                ctx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                masterGain = ctx.createGain();
+                masterGain.gain.value = 0.3;
+                masterGain.connect(ctx.destination);
 
-            // Simple Reverb (Music box needs space)
-            reverbBus = ctx.createGain();
-            const delay = ctx.createDelay();
-            delay.delayTime.value = 0.15;
-            const feedback = ctx.createGain();
-            feedback.gain.value = 0.4;
+                reverbBus = ctx.createGain();
+                reverbBus.gain.value = 0.2; // Control reverb amount
+                
+                const delay = ctx.createDelay();
+                delay.delayTime.value = 0.4;
+                const feedback = ctx.createGain();
+                feedback.gain.value = 0.3;
 
-            reverbBus.connect(delay);
-            delay.connect(feedback);
-            feedback.connect(delay);
-            delay.connect(masterGain);
+                reverbBus.connect(delay);
+                delay.connect(feedback);
+                feedback.connect(delay);
+                delay.connect(masterGain);
+            }
+
+            // Always try to resume context on user gesture
+            if (ctx.state === 'suspended') {
+                await ctx.resume();
+            }
 
             isInitialized = true;
-            console.log('Audio Engine Initialized');
+            console.log('Audio Engine Initialized. State:', ctx.state);
         } catch (e) {
-            console.error('Web Audio API not supported', e);
+            console.error('Web Audio API Initialization Error:', e);
         }
     }
 
@@ -67,47 +73,55 @@ const AudioEngine = (function () {
         const osc = ctx.createOscillator();
         const noteGain = ctx.createGain();
 
-        // Music box timbre: Sine + soft Square harmonic
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
 
-        // Fast attack, slow decay (plink)
+        // Music Box Envelope: Instant attack, exponential decay
         noteGain.gain.setValueAtTime(0, startTime);
-        noteGain.gain.linearRampToValueAtTime(0.2, startTime + 0.01);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 2);
+        noteGain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 1.5);
 
         osc.connect(noteGain);
         noteGain.connect(masterGain);
         noteGain.connect(reverbBus);
 
         osc.start(startTime);
-        osc.stop(startTime + duration * 2);
+        osc.stop(startTime + duration * 1.5);
     }
 
     let isPlaying = false;
     let sequenceTimeout = null;
+    let nextNoteTime = 0;
 
     /**
      * @brief Starts the looping lullaby.
      */
-    function startLullaby() {
-        if (!isInitialized) init();
+    async function startLullaby() {
+        await init();
         if (isPlaying) return;
         
         isPlaying = true;
-        let currentTime = ctx.currentTime + 0.1;
-        const tempo = 1.2; // Seconds per beat
+        nextNoteTime = ctx.currentTime + 0.1;
+        const tempo = 1.0; // Seconds per beat
 
         function scheduleLoop() {
+            if (!isPlaying) return;
+
+            // Ensure we aren't scheduling too far in the past
+            if (nextNoteTime < ctx.currentTime) {
+                nextNoteTime = ctx.currentTime + 0.1;
+            }
+
             let loopDuration = 0;
             LULLABY_NOTES.forEach(note => {
-                playNote(note.f, currentTime + loopDuration, note.d * tempo);
+                playNote(note.f, nextNoteTime + loopDuration, note.d * tempo);
                 loopDuration += note.d * tempo;
             });
 
-            // Schedule next loop iteration
-            sequenceTimeout = setTimeout(scheduleLoop, loopDuration * 1000);
-            currentTime += loopDuration;
+            // Schedule the next block slightly before the current one ends
+            const nextBatchWait = (loopDuration - 0.1) * 1000;
+            nextNoteTime += loopDuration;
+            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait);
         }
 
         scheduleLoop();
@@ -135,5 +149,4 @@ const AudioEngine = (function () {
     };
 })();
 
-// Export to window for easy access
 window.AudioEngine = AudioEngine;
