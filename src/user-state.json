@@ -1,0 +1,96 @@
+{
+    "lastUpdated": "2026-03-18T00:00:00.000Z",
+    "appData": {
+        "app_title": "Baby Ava's Arrival Prep",
+        "app_subtitle": "Checklist & Task Tracker",
+        "categories": [
+            {
+                "id": "c1",
+                "title": "Nursery & Baby Core",
+                "subtitle": "Baby's Room / House",
+                "icon": "🍼",
+                "tasks": [
+                    { "id": "t1", "text": "Assemble the crib", "priority": "MED" },
+                    { "id": "t2", "text": "Clean the future baby's room", "priority": "LOW" },
+                    { "id": "t3", "text": "Hang a new ceiling fan in the baby's room", "priority": "MED" },
+                    { "id": "t4", "text": "Install two cameras in the baby's room", "priority": "LOW" },
+                    { "id": "t5", "text": "Assemble the Pack 'N Play", "priority": "LOW" }
+                ]
+            },
+            {
+                "id": "c2",
+                "title": "Medical & Admin",
+                "subtitle": "External / Online",
+                "icon": "🏥",
+                "tasks": [
+                    { "id": "t6", "text": "Call/set up pediatric doctor in Wildwood/Lee's Summit (Monday deadline, finalize by next Sunday)", "priority": "MED" }
+                ]
+            },
+            {
+                "id": "c3",
+                "title": "Interior Cleaning & Org",
+                "subtitle": "Whole House",
+                "icon": "🧹",
+                "tasks": [
+                    { "id": "t7", "text": "Deep clean main rooms (living room, kitchen, dining room)", "priority": "HIGH" },
+                    { "id": "t8", "text": "Wash the carpets", "priority": "MED" },
+                    { "id": "t9", "text": "General organizing and putting stuff away", "priority": "LOW" },
+                    { "id": "t10", "text": "Rearrange master bedroom and switch sides on the bed", "priority": "LOW" },
+                    { "id": "t11", "text": "Clean up and organize the basement (throw away old college stuff)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c4",
+                "title": "Furniture & Equipment",
+                "subtitle": "Various",
+                "icon": "🪑",
+                "tasks": [
+                    { "id": "t12", "text": "Assemble a table", "priority": "LOW" },
+                    { "id": "t13", "text": "Install a fixture", "priority": "MED" },
+                    { "id": "t14", "text": "Set up bottle washer in dining room (route wastewater outside via weatherproof fitting)", "priority": "MED" },
+                    { "id": "t15", "text": "Find and buy a comfortable nursing/holding chair for office/upstairs (under $500)", "priority": "LOW" }
+                ]
+            },
+            {
+                "id": "c5",
+                "title": "Electrical & Safety",
+                "subtitle": "Whole House",
+                "icon": "⚡",
+                "tasks": [
+                    { "id": "t16", "text": "Child-safe electrical outlets and remove/store sharp objects", "priority": "LOW" },
+                    { "id": "t17", "text": "Route internet to center of house (power & ethernet from coax modem to central WAP & core PC)", "priority": "HIGH" },
+                    { "id": "t18", "text": "Run power to deficient room (disconnect panel, run cabling, wire outlets)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c6",
+                "title": "Exterior & Garage",
+                "subtitle": "Outside / Garage",
+                "icon": "🏡",
+                "tasks": [
+                    { "id": "t19", "text": "Clean up the garage and put the tent away", "priority": "LOW" },
+                    { "id": "t20", "text": "Install front-facing security camera on garage (requires wiring external outlet)", "priority": "HIGH" },
+                    { "id": "t21", "text": "Clean up car cover area", "priority": "LOW" },
+                    { "id": "t22", "text": "Prep and store '69 Opel GT project outside with cover (rust prevention)", "priority": "MED" },
+                    { "id": "t23", "text": "Purchase and set up robotic lawnmower (steep-hill capable, ¼ acre)", "priority": "MED" },
+                    { "id": "t24", "text": "Replace back porch chair cushions", "priority": "LOW" },
+                    { "id": "t25", "text": "Repair/replace structurally unstable back porch (evaluate DIY vs contractor)", "priority": "HIGH" },
+                    { "id": "t26", "text": "Install backyard dog fence (permanent build or temporary wrap-around)", "priority": "HIGH" }
+                ]
+            },
+            {
+                "id": "c7",
+                "title": "Pet Management",
+                "subtitle": "Living Room / Dogs",
+                "icon": "🐾",
+                "tasks": [
+                    { "id": "t27", "text": "Build/buy proper aesthetic dog housing (~15ft L × 2–3ft W × 4ft H)", "priority": "MED" },
+                    { "id": "t28", "text": "Buy small, cheap, long-lasting non-shock vibration/sound training collars for barking", "priority": "LOW" }
+                ]
+            }
+        ]
+    },
+    "userState": {
+        "checked": {}
+    }
+}

@@ -317,6 +317,21 @@ h2 { font-size: clamp(1.1rem, 4vw, 1.25rem); font-family: 'DM Serif Display', se
     border-radius: var(--radius-lg);
 }
 
+.admin-hint {
+    font-size: clamp(0.7rem, 2vw, 0.8rem);
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.4;
+    margin-top: 0.25rem;
+}
+
+.admin-hint code {
+    background: rgba(15,25,35,0.06);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
 /* ── Modal ──────────────────────────────────────────────── */
 .modal {
     position: fixed;
