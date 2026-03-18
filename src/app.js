@@ -128,12 +128,42 @@
 
     async function init() {
         try {
+            // Step 1: Try to fetch the shared committed state (user-state.json)
+            let sharedState = null;
+            try {
+                const stateResponse = await fetch('src/user-state.json?v=' + Date.now());
+                if (stateResponse.ok) {
+                    sharedState = await stateResponse.json();
+                }
+            } catch (e) {
+                // user-state.json doesn't exist yet, that's fine
+            }
+
+            // Step 2: Check localStorage for session data
+            let loadedFromLocal = false;
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                appData = parsed.appData;
-                userState = parsed.userState;
-            } else {
+                const localTimestamp = parsed.lastUpdated || 0;
+                const sharedTimestamp = sharedState ? sharedState.lastUpdated || 0 : 0;
+
+                if (new Date(localTimestamp) >= new Date(sharedTimestamp)) {
+                    // Local is same or newer — user has unsaved session edits
+                    appData = parsed.appData;
+                    userState = parsed.userState;
+                    loadedFromLocal = true;
+                }
+            }
+
+            // Step 3: If localStorage wasn't used, try shared state
+            if (!loadedFromLocal && sharedState) {
+                appData = sharedState.appData;
+                userState = sharedState.userState;
+                saveToStorage();
+            }
+
+            // Step 4: Fall back to tasks.json / defaults
+            if (!loadedFromLocal && !sharedState) {
                 try {
                     const response = await fetch('src/tasks.json');
                     if (response.ok) {
@@ -148,6 +178,7 @@
             }
         } catch (err) {
             appData = DEFAULT_APP_DATA;
+            userState = { checked: {} };
         }
 
         renderApp();
@@ -155,7 +186,7 @@
     }
 
     function saveToStorage() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ appData, userState }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ appData, userState, lastUpdated: new Date().toISOString() }));
     }
 
     function renderApp() {
@@ -338,10 +369,15 @@
             }
         });
         el.exportDataBtn.addEventListener('click', () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+            const exportPayload = {
+                lastUpdated: new Date().toISOString(),
+                appData: appData,
+                userState: userState
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
             const dl = document.createElement('a');
             dl.href = dataStr;
-            dl.download = "tasks_backup.json";
+            dl.download = "user-state.json";
             dl.click();
         });
 
