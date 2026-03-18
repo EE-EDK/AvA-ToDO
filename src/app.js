@@ -380,4 +380,24 @@
     }
 
     init();
+
+    // Audio Logic - Try immediately, fallback to interaction
+    const startAudio = () => {
+        if (window.AudioEngine) {
+            window.AudioEngine.init();
+            window.AudioEngine.startLullaby();
+            // Remove listeners once it actually starts
+            document.removeEventListener('click', startAudio);
+            document.removeEventListener('touchstart', startAudio);
+            document.removeEventListener('mousedown', startAudio);
+        }
+    };
+
+    // Try starting immediately (some browsers/webviews allow it)
+    setTimeout(startAudio, 100);
+
+    // Robust fallback for modern browser autoplay policies
+    document.addEventListener('click', startAudio);
+    document.addEventListener('touchstart', startAudio);
+    document.addEventListener('mousedown', startAudio);
 })();
