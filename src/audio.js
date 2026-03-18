@@ -1,8 +1,8 @@
 /**
  * @file audio.js
  * @brief Procedural audio engine for Ava Arrival Prep.
- *        Implements a music box style Brahms' Lullaby.
- * @version 1.1
+ *        Implements a slow, warm bell style Brahms' Lullaby.
+ * @version 1.2
  */
 
 const AudioEngine = (function () {
@@ -15,13 +15,14 @@ const AudioEngine = (function () {
     let isMuted = false;
 
     // Brahms' Lullaby Melody (Notes and Durations)
+    // d: 1.0 = one full beat in our slow tempo
     const LULLABY_NOTES = [
-        { f: 329.63, d: 0.5 }, { f: 329.63, d: 0.75 }, { f: 392.00, d: 0.25 }, // E4, E4, G4
-        { f: 329.63, d: 0.5 }, { f: 329.63, d: 0.75 }, { f: 392.00, d: 0.25 }, // E4, E4, G4
-        { f: 329.63, d: 0.5 }, { f: 392.00, d: 0.5 }, { f: 523.25, d: 1.0 },   // E4, G4, C5
-        { f: 493.88, d: 0.5 }, { f: 440.00, d: 0.5 }, { f: 392.00, d: 1.0 },   // B4, A4, G4
-        { f: 293.66, d: 0.5 }, { f: 349.23, d: 0.5 }, { f: 440.00, d: 1.0 },   // D4, F4, A4
-        { f: 392.00, d: 0.5 }, { f: 349.23, d: 0.5 }, { f: 329.63, d: 1.0 }    // G4, F4, E4
+        { f: 329.63, d: 1.0 }, { f: 329.63, d: 1.5 }, { f: 392.00, d: 0.5 }, // E4, E4, G4
+        { f: 329.63, d: 1.0 }, { f: 329.63, d: 1.5 }, { f: 392.00, d: 0.5 }, // E4, E4, G4
+        { f: 329.63, d: 1.0 }, { f: 392.00, d: 1.0 }, { f: 523.25, d: 2.0 }, // E4, G4, C5
+        { f: 493.88, d: 1.0 }, { f: 440.00, d: 1.0 }, { f: 392.00, d: 2.0 }, // B4, A4, G4
+        { f: 293.66, d: 1.0 }, { f: 349.23, d: 1.0 }, { f: 440.00, d: 2.0 }, // D4, F4, A4
+        { f: 392.00, d: 1.0 }, { f: 349.23, d: 1.0 }, { f: 329.63, d: 2.0 }  // G4, F4, E4
     ];
 
     /**
@@ -35,16 +36,17 @@ const AudioEngine = (function () {
                 ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 masterGain = ctx.createGain();
-                masterGain.gain.value = 0.3;
+                masterGain.gain.value = 0.25; // Lower overall volume for calming effect
                 masterGain.connect(ctx.destination);
 
+                // Reverb: Single long tail, no short echoes
                 reverbBus = ctx.createGain();
-                reverbBus.gain.value = 0.2; // Control reverb amount
+                reverbBus.gain.value = 0.4; // More reverb for "ethereal" feel
                 
                 const delay = ctx.createDelay();
-                delay.delayTime.value = 0.4;
+                delay.delayTime.value = 0.8; // Long delay time
                 const feedback = ctx.createGain();
-                feedback.gain.value = 0.3;
+                feedback.gain.value = 0.2; // Low feedback to prevent "double sound" clutter
 
                 reverbBus.connect(delay);
                 delay.connect(feedback);
@@ -52,20 +54,19 @@ const AudioEngine = (function () {
                 delay.connect(masterGain);
             }
 
-            // Always try to resume context on user gesture
             if (ctx.state === 'suspended') {
                 await ctx.resume();
             }
 
             isInitialized = true;
-            console.log('Audio Engine Initialized. State:', ctx.state);
+            console.log('Audio Engine Initialized (v1.2). State:', ctx.state);
         } catch (e) {
             console.error('Web Audio API Initialization Error:', e);
         }
     }
 
     /**
-     * @brief Plays a single "plink" note (music box style)
+     * @brief Plays a single "warm bell" note with long sustain
      */
     function playNote(freq, startTime, duration) {
         if (!isInitialized || isMuted) return;
@@ -73,20 +74,22 @@ const AudioEngine = (function () {
         const osc = ctx.createOscillator();
         const noteGain = ctx.createGain();
 
+        // Warm timbre: Sine wave is purest
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
 
-        // Music Box Envelope: Instant attack, exponential decay
+        // Slow attack (prevents clicks) and very long release
         noteGain.gain.setValueAtTime(0, startTime);
-        noteGain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 1.5);
+        noteGain.gain.linearRampToValueAtTime(0.3, startTime + 0.1); 
+        // Sustain note for longer than its musical duration
+        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 3.0);
 
         osc.connect(noteGain);
         noteGain.connect(masterGain);
         noteGain.connect(reverbBus);
 
         osc.start(startTime);
-        osc.stop(startTime + duration * 1.5);
+        osc.stop(startTime + duration + 3.1);
     }
 
     let isPlaying = false;
@@ -94,22 +97,21 @@ const AudioEngine = (function () {
     let nextNoteTime = 0;
 
     /**
-     * @brief Starts the looping lullaby.
+     * @brief Starts the slow, single-note lullaby.
      */
     async function startLullaby() {
         await init();
         if (isPlaying) return;
         
         isPlaying = true;
-        nextNoteTime = ctx.currentTime + 0.1;
-        const tempo = 1.0; // Seconds per beat
+        nextNoteTime = ctx.currentTime + 0.2;
+        const tempo = 1.8; // Much slower (1.8 seconds per beat)
 
         function scheduleLoop() {
             if (!isPlaying) return;
 
-            // Ensure we aren't scheduling too far in the past
             if (nextNoteTime < ctx.currentTime) {
-                nextNoteTime = ctx.currentTime + 0.1;
+                nextNoteTime = ctx.currentTime + 0.2;
             }
 
             let loopDuration = 0;
@@ -118,10 +120,10 @@ const AudioEngine = (function () {
                 loopDuration += note.d * tempo;
             });
 
-            // Schedule the next block slightly before the current one ends
-            const nextBatchWait = (loopDuration - 0.1) * 1000;
-            nextNoteTime += loopDuration;
-            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait);
+            // Schedule the next block with a slight gap
+            const nextBatchWait = (loopDuration) * 1000;
+            nextNoteTime += loopDuration + 2.0; // Added a 2 second gap between loops
+            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 2000);
         }
 
         scheduleLoop();
@@ -135,7 +137,7 @@ const AudioEngine = (function () {
     function toggleMute() {
         isMuted = !isMuted;
         if (masterGain) {
-            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.3, ctx.currentTime, 0.1);
+            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.25, ctx.currentTime, 0.2);
         }
         return isMuted;
     }
