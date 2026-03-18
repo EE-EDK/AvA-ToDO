@@ -1,8 +1,8 @@
 /**
  * @file audio.js
  * @brief Procedural audio engine for Ava Arrival Prep.
- *        Implements a slow, warm bell style Brahms' Lullaby with user-defined notes.
- * @version 1.4
+ *        Implements a slow, warm, single-note bell style Brahms' Lullaby.
+ * @version 1.5
  */
 
 const AudioEngine = (function () {
@@ -14,54 +14,43 @@ const AudioEngine = (function () {
     let isInitialized = false;
     let isMuted = false;
 
-    // Brahms' Lullaby Melody (User Defined Notes in 6th Octave)
+    // Brahms' Lullaby Melody (Lowered to 4th/5th Octave)
+    // Frequencies: G4: 392.00, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99
     const LULLABY_NOTES = [
         // "Lullaby and goodnight"
-        { f: 783.99, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 1.6 },
-        { f: 1318.51, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 1.6 },
+        { f: 392.00, d: 0.8 }, { f: 392.00, d: 0.8 }, { f: 523.25, d: 0.8 }, { f: 523.25, d: 0.8 }, { f: 523.25, d: 1.6 },
+        { f: 659.25, d: 0.8 }, { f: 659.25, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 783.99, d: 1.6 },
         
         // "With roses bedight"
-        { f: 1174.66, d: 0.8 }, { f: 1174.66, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 0.8 }, { f: 1567.98, d: 1.6 },
-        { f: 1318.51, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 1.6 },
+        { f: 587.33, d: 0.8 }, { f: 587.33, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 783.99, d: 0.8 }, { f: 783.99, d: 1.6 },
+        { f: 659.25, d: 0.8 }, { f: 659.25, d: 0.8 }, { f: 523.25, d: 0.8 }, { f: 523.25, d: 0.8 }, { f: 523.25, d: 1.6 },
         
         // "Go to sleep, little baby..." (Descending pattern)
-        { f: 1046.50, d: 0.8 }, { f: 1046.50, d: 0.8 }, { f: 1567.98, d: 1.6 },
-        { f: 1396.91, d: 0.8 }, { f: 1318.51, d: 0.8 }, { f: 1174.66, d: 0.8 }, { f: 1046.50, d: 2.0 }
+        { f: 523.25, d: 0.8 }, { f: 523.25, d: 0.8 }, { f: 783.99, d: 1.6 },
+        { f: 698.46, d: 0.8 }, { f: 659.25, d: 0.8 }, { f: 587.33, d: 0.8 }, { f: 523.25, d: 2.0 }
     ];
 
     /**
      * @brief Initializes the Web Audio context and graph.
      */
     async function init() {
-        // If already running, nothing to do
         if (ctx && ctx.state === 'running') return true;
 
         try {
             if (!ctx) {
-                console.log('Creating new AudioContext...');
                 ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
                 masterGain = ctx.createGain();
-                masterGain.gain.value = 0.2; 
+                masterGain.gain.value = 0.25; 
                 masterGain.connect(ctx.destination);
 
+                // Simple Reverb-like tail without echo/delay
                 reverbBus = ctx.createGain();
-                reverbBus.gain.value = 0.5;
-                
-                const delay = ctx.createDelay();
-                delay.delayTime.value = 0.8;
-                const feedback = ctx.createGain();
-                feedback.gain.value = 0.15;
-
-                reverbBus.connect(delay);
-                delay.connect(feedback);
-                feedback.connect(delay);
-                delay.connect(masterGain);
+                reverbBus.gain.value = 0.3;
+                reverbBus.connect(masterGain);
             }
 
-            // Attempt to resume if suspended (standard browser behavior)
             if (ctx.state === 'suspended') {
-                console.log('Resuming suspended AudioContext...');
                 await ctx.resume();
             }
 
@@ -82,19 +71,21 @@ const AudioEngine = (function () {
         const osc = ctx.createOscillator();
         const noteGain = ctx.createGain();
 
+        // Warm pure sine wave
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, startTime);
 
+        // Very slow attack (0.2s) for warmth, long release (4s) for sustain
         noteGain.gain.setValueAtTime(0, startTime);
-        noteGain.gain.linearRampToValueAtTime(0.25, startTime + 0.1); 
-        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 3.0);
+        noteGain.gain.linearRampToValueAtTime(0.3, startTime + 0.2); 
+        noteGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration + 4.0);
 
         osc.connect(noteGain);
         noteGain.connect(masterGain);
         noteGain.connect(reverbBus);
 
         osc.start(startTime);
-        osc.stop(startTime + duration + 3.1);
+        osc.stop(startTime + duration + 4.1);
     }
 
     let isPlaying = false;
@@ -108,10 +99,9 @@ const AudioEngine = (function () {
         const success = await init();
         if (!success || isPlaying) return;
         
-        console.log('Starting Lullaby sequence...');
         isPlaying = true;
         nextNoteTime = ctx.currentTime + 0.2;
-        const tempo = 1.8;
+        const tempo = 2.0; // Even slower (2.0s per beat)
 
         function scheduleLoop() {
             if (!isPlaying || ctx.state !== 'running') {
@@ -130,8 +120,8 @@ const AudioEngine = (function () {
             });
 
             const nextBatchWait = (loopDuration) * 1000;
-            nextNoteTime += loopDuration + 3.0;
-            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 3000);
+            nextNoteTime += loopDuration + 4.0; // Long silence between loops
+            sequenceTimeout = setTimeout(scheduleLoop, nextBatchWait + 4000);
         }
 
         scheduleLoop();
@@ -145,7 +135,7 @@ const AudioEngine = (function () {
     function toggleMute() {
         isMuted = !isMuted;
         if (masterGain && ctx) {
-            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.2, ctx.currentTime, 0.2);
+            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.25, ctx.currentTime, 0.2);
         }
         return isMuted;
     }
