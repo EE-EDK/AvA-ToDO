@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1923">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Baby Ava's Arrival Prep</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+
+    <!-- Hero Header -->
+    <header class="hero">
+        <span class="hero-icon" aria-hidden="true">👶</span>
+        <h1 id="appTitle">Loading...</h1>
+        <p class="hero-subtitle" id="appSubtitle"></p>
+    </header>
+
+    <!-- Sticky Progress -->
+    <div class="progress-wrap" role="status" aria-live="polite">
+        <div class="progress-header">
+            <span class="progress-label">Progress</span>
+            <span class="progress-count" id="progressCount">0 / 0</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <!-- Main Content Shell -->
+    <main class="content" id="mainContent">
+        <!-- Completion Banner (hidden until 100%) -->
+        <div class="completion-banner" id="completionBanner">
+            <span class="big-emoji" aria-hidden="true">🎉</span>
+            <h2>All Done!</h2>
+            <p>The house is ready for Baby Ava.</p>
+        </div>
+
+        <!-- Categories and tasks will be injected here -->
+        <div id="categoryContainer"></div>
+
+        <!-- Admin Controls -->
+        <div class="admin-controls">
+            <button id="addCategoryBtn" class="btn btn-secondary">Add Category</button>
+            <button id="resetDataBtn" class="btn btn-danger">Reset to Defaults</button>
+            <button id="exportDataBtn" class="btn btn-primary">Export JSON</button>
+        </div>
+    </main>
+
+    <footer class="footer">
+        Ava Arrival Prep &bull; v3.0 (Dynamic)
+    </footer>
+
+    <!-- Modals for adding/editing -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Edit Item</h3>
+            <div class="form-group">
+                <label for="editInput">Name</label>
+                <input type="text" id="editInput" placeholder="Enter text...">
+            </div>
+            <div id="priorityGroup" class="form-group hidden">
+                <label for="editPriority">Priority</label>
+                <select id="editPriority">
+                    <option value="LOW">Low</option>
+                    <option value="MED">Med</option>
+                    <option value="HIGH">High</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button id="modalCancel" class="btn">Cancel</button>
+                <button id="modalSave" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="src/app.js"></script>
+</body>
+</html>
