@@ -1,15 +1,15 @@
 /**
  * @file app.js
  * @brief Dynamic task manager for Ava Arrival Prep.
- * @version 3.2
+ * @version 4.0 — Persistent shared state via remote API
  */
 
 (function () {
     'use strict';
 
     const STORAGE_KEY = 'ava-checklist-data-v3';
-    
-    // Default data as a fallback to avoid CORS issues with file:// protocol
+    const API_BASE = 'https://kunz-ai-hub.tailb1d0b7.ts.net/ava-api';
+
     const DEFAULT_APP_DATA = {
         "app_title": "Baby Ava's Arrival Prep",
         "app_subtitle": "Checklist & Task Tracker",
@@ -103,6 +103,8 @@
 
     let appData = { ...DEFAULT_APP_DATA };
     let userState = { checked: {} };
+    let syncEnabled = false;
+    let saveTimer = null;
 
     const el = {
         appTitle: document.getElementById('appTitle'),
@@ -126,68 +128,109 @@
 
     let activeEditContext = null;
 
+    // ── Remote API helpers ──────────────────────────────────────────
+
+    async function fetchRemoteState() {
+        const res = await fetch(API_BASE + '/state');
+        if (!res.ok) throw new Error('API returned ' + res.status);
+        return res.json();
+    }
+
+    async function pushRemoteState() {
+        const payload = {
+            lastUpdated: new Date().toISOString(),
+            appData: appData,
+            userState: userState
+        };
+        const res = await fetch(API_BASE + '/state', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('API PUT returned ' + res.status);
+        return res.json();
+    }
+
+    // Debounced save — writes to localStorage immediately, pushes to API after 500ms idle
+    function saveToStorage() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            appData, userState, lastUpdated: new Date().toISOString()
+        }));
+
+        if (syncEnabled) {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                pushRemoteState().catch(err => console.warn('Sync push failed:', err));
+            }, 500);
+        }
+    }
+
+    // ── Init ────────────────────────────────────────────────────────
+
     async function init() {
         try {
-            // Step 1: Try to fetch the shared committed state (user-state.json)
-            let sharedState = null;
-            try {
-                const stateResponse = await fetch('src/user-state.json?v=' + Date.now());
-                if (stateResponse.ok) {
-                    sharedState = await stateResponse.json();
-                }
-            } catch (e) {
-                // user-state.json doesn't exist yet, that's fine
-            }
-
-            // Step 2: Check localStorage for session data
-            let loadedFromLocal = false;
+            // Try remote API first (shared source of truth)
+            const remote = await fetchRemoteState();
+            appData = remote.appData;
+            userState = remote.userState;
+            syncEnabled = true;
+            saveToStorage(); // cache locally
+            console.log('Loaded shared state from API');
+        } catch (apiErr) {
+            console.warn('API unavailable, falling back to local:', apiErr.message);
+            // Fall back to localStorage
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                const localTimestamp = parsed.lastUpdated || 0;
-                const sharedTimestamp = sharedState ? sharedState.lastUpdated || 0 : 0;
-
-                if (new Date(localTimestamp) >= new Date(sharedTimestamp)) {
-                    // Local is same or newer — user has unsaved session edits
-                    appData = parsed.appData;
-                    userState = parsed.userState;
-                    loadedFromLocal = true;
-                }
-            }
-
-            // Step 3: If localStorage wasn't used, try shared state
-            if (!loadedFromLocal && sharedState) {
-                appData = sharedState.appData;
-                userState = sharedState.userState;
-                saveToStorage();
-            }
-
-            // Step 4: Fall back to tasks.json / defaults
-            if (!loadedFromLocal && !sharedState) {
+                appData = parsed.appData;
+                userState = parsed.userState;
+            } else {
+                // Last resort: try static files, then defaults
                 try {
-                    const response = await fetch('src/tasks.json');
-                    if (response.ok) {
-                        appData = await response.json();
-                    } else {
-                        appData = DEFAULT_APP_DATA;
+                    const res = await fetch('src/user-state.json?v=' + Date.now());
+                    if (res.ok) {
+                        const shared = await res.json();
+                        appData = shared.appData;
+                        userState = shared.userState;
                     }
                 } catch (e) {
-                    appData = DEFAULT_APP_DATA;
+                    try {
+                        const res = await fetch('src/tasks.json');
+                        if (res.ok) appData = await res.json();
+                    } catch (e2) {
+                        // use DEFAULT_APP_DATA already assigned
+                    }
+                    userState = { checked: {} };
                 }
-                userState = { checked: {} };
             }
-        } catch (err) {
-            appData = DEFAULT_APP_DATA;
-            userState = { checked: {} };
         }
 
         renderApp();
         bindGlobalEvents();
+
+        // Poll for remote changes every 30 seconds (keeps tabs in sync)
+        if (syncEnabled) {
+            setInterval(async () => {
+                try {
+                    const remote = await fetchRemoteState();
+                    const localTs = new Date(localStorage.getItem(STORAGE_KEY) ?
+                        JSON.parse(localStorage.getItem(STORAGE_KEY)).lastUpdated : 0);
+                    const remoteTs = new Date(remote.lastUpdated);
+                    if (remoteTs > localTs) {
+                        appData = remote.appData;
+                        userState = remote.userState;
+                        saveToStorage();
+                        renderApp();
+                        console.log('Synced newer state from API');
+                    }
+                } catch (e) {
+                    // silently skip
+                }
+            }, 30000);
+        }
     }
 
-    function saveToStorage() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ appData, userState, lastUpdated: new Date().toISOString() }));
-    }
+    // ── Rendering ───────────────────────────────────────────────────
 
     function renderApp() {
         el.appTitle.textContent = appData.app_title;
@@ -214,8 +257,8 @@
                     <p class="section-meta">${cat.subtitle}</p>
                 </div>
                 <div class="section-actions">
-                    <button class="btn-icon add-task-btn" title="Add Task">➕</button>
-                    <button class="btn-icon delete-cat-btn" title="Delete Category">🗑️</button>
+                    <button class="btn-icon add-task-btn" title="Add Task">\u2795</button>
+                    <button class="btn-icon delete-cat-btn" title="Delete Category">\ud83d\uddd1\ufe0f</button>
                 </div>
             </div>
             <div class="task-list"></div>
@@ -230,7 +273,7 @@
             e.stopPropagation();
             openModal('TASK', cat.id);
         });
-        
+
         section.querySelector('.delete-cat-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             deleteCategory(cat.id);
@@ -249,7 +292,7 @@
             <input type="checkbox" data-id="${task.id}" ${isChecked ? 'checked' : ''}>
             <span class="task-text">${task.text}</span>
             <span class="badge badge-${task.priority.toLowerCase()}">${task.priority}</span>
-            <button class="btn-icon delete-task-btn" title="Delete Task">✕</button>
+            <button class="btn-icon delete-task-btn" title="Delete Task">\u2715</button>
         `;
 
         const checkbox = label.querySelector('input');
@@ -279,7 +322,7 @@
 
         el.progressFill.style.width = pct + '%';
         el.progressCount.textContent = `${checkedCount} / ${total}`;
-        
+
         if (pct === 100 && total > 0) {
             el.completionBanner.classList.add('visible');
             fireConfetti();
@@ -298,6 +341,8 @@
             disableForReducedMotion: true
         });
     }
+
+    // ── Modals & CRUD ───────────────────────────────────────────────
 
     function openModal(type, parentId = null) {
         activeEditContext = { type, parentId };
@@ -322,7 +367,7 @@
                 id: 'c' + Date.now(),
                 title: val,
                 subtitle: "Custom Category",
-                icon: "📋",
+                icon: "\ud83d\udccb",
                 tasks: []
             });
         } else {
@@ -358,6 +403,8 @@
         }
     }
 
+    // ── Global Events ───────────────────────────────────────────────
+
     function bindGlobalEvents() {
         el.addCategoryBtn.addEventListener('click', () => openModal('CAT'));
         el.modalSave.addEventListener('click', saveModal);
@@ -365,6 +412,12 @@
         el.resetDataBtn.addEventListener('click', () => {
             if (confirm('Reset all data to defaults? This will erase your custom tasks.')) {
                 localStorage.removeItem(STORAGE_KEY);
+                // Also reset the remote state
+                appData = { ...DEFAULT_APP_DATA };
+                userState = { checked: {} };
+                if (syncEnabled) {
+                    pushRemoteState().catch(err => console.warn('Reset push failed:', err));
+                }
                 location.reload();
             }
         });
@@ -408,15 +461,13 @@
         if (window.AudioEngine) {
             console.log('User interaction detected, starting audio...');
             await window.AudioEngine.startLullaby();
-            
-            // Clean up listeners
+
             document.removeEventListener('click', startAudio);
             document.removeEventListener('touchstart', startAudio);
             document.removeEventListener('mousedown', startAudio);
         }
     };
 
-    // Try auto-start, fallback to gesture
     setTimeout(startAudio, 200);
     document.addEventListener('click', startAudio);
     document.addEventListener('touchstart', startAudio);
